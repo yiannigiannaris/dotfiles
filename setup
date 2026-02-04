@@ -4,4 +4,4 @@ set -eux
 
 
 sudo DEBIAN_FRONTEND=noninteractive apt update
-sudo DEBIAN_FRONTEND=noninteractive apt install -y gh fzf
+sudo DEBIAN_FRONTEND=noninteractive apt install -y gh fzf tmux
