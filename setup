@@ -4,7 +4,7 @@ set -eux
 
 
 sudo DEBIAN_FRONTEND=noninteractive apt update
-sudo DEBIAN_FRONTEND=noninteractive apt install -y gh tmux zsh s3cmd file
+sudo DEBIAN_FRONTEND=noninteractive apt install -y gh tmux zsh s3cmd file ripgrep
 
 curl -sS https://starship.rs/install.sh | sudo sh -s -- -y
 sudo chsh -s /bin/zsh coder
