@@ -13,3 +13,6 @@ ln -sf /home/coder/bin/local-open ${local_bin_dir}/local-open
 cp br-open ${local_bin_dir}/br-open
 cp lcp ${local_bin_dir}/lcp
 cp local-open ${local_bin_dir}/local-open
+
+[[ -f ${local_bin_dir}/cwctl ]] || echo "w: EXPECTED binary: cwctl"
+[[ -f ${local_bin_dir}/yanl ]] || echo "w: EXPECTED binary: yanl"
