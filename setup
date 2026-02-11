@@ -4,7 +4,15 @@ set -eux
 
 
 sudo DEBIAN_FRONTEND=noninteractive apt update
-sudo DEBIAN_FRONTEND=noninteractive apt install -y gh tmux zsh s3cmd file ripgrep shellcheck
+sudo DEBIAN_FRONTEND=noninteractive apt install -y \
+  gh \
+  tmux \
+  zsh \
+  s3cmd \
+  file \
+  ripgrep \
+  shellcheck \
+  cpio
 
 curl -sS https://starship.rs/install.sh | sudo sh -s -- -y
 sudo chsh -s /bin/zsh coder
@@ -16,3 +24,8 @@ wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/sh
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
 sudo apt update
 sudo apt install vault || echo "vault install expected to fail"
+# install doppler
+sudo apt-get update && sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
+curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key' | sudo gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" | sudo tee /etc/apt/sources.list.d/doppler-cli.list
+sudo apt-get update && sudo apt-get install doppler
