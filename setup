@@ -13,7 +13,8 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y \
   ripgrep \
   shellcheck \
   cpio \
-  golang-go
+  golang-go \
+  netcat-openbsd
 
 curl -sS https://starship.rs/install.sh | sudo sh -s -- -y
 sudo chsh -s /bin/zsh coder
