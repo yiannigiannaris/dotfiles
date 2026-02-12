@@ -17,7 +17,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y \
 
 curl -sS https://starship.rs/install.sh | sudo sh -s -- -y
 sudo chsh -s /bin/zsh coder
-mkdir -p /home/ygiannaris
+sudo mkdir -p /home/ygiannaris
 sudo chown -R coder:coder /home/ygiannaris
 sudo chmod -R u+rwx /home/ygiannaris
 sudo chmod -R g+rwx /home/ygiannaris
