@@ -12,7 +12,8 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y \
   file \
   ripgrep \
   shellcheck \
-  cpio
+  cpio \
+  golang-go
 
 curl -sS https://starship.rs/install.sh | sudo sh -s -- -y
 sudo chsh -s /bin/zsh coder
