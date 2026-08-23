@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly DOPPLER_PROJECT="ticketmaster"
+readonly DOPPLER_CONFIG="prd-env"
+readonly CONFIRM_PHRASE="CONFIRMED"
+
+usage() {
+  cat <<EOF >&2
+Usage:
+  ${0##*/} <query-file.sql> [-- <psql-args>...]   Run the SQL file against production after confirmation.
+  ${0##*/} -c [-- <psql-args>...]                 Start an interactive psql REPL against production after confirmation.
+
+Anything after -- is forwarded verbatim to psql (e.g. --single-transaction -v ON_ERROR_STOP=1).
+EOF
+}
+
+print_query_file() {
+  local file
+  file="$1"
+  printf -- '----- Query to execute against PRODUCTION (%s) -----\n' "$file" >&2
+  cat -- "$file" >&2
+  printf -- '\n----- End of query -----\n\n' >&2
+}
+
+require_confirmation() {
+  local input
+  while true; do
+    printf 'This will run the query above against PRODUCTION.\n' >&2
+    printf 'Type %s to proceed: ' "$CONFIRM_PHRASE" >&2
+    if ! read -r input; then
+      printf '\nAborted.\n' >&2
+      exit 1
+    fi
+    if [[ "$input" == "$CONFIRM_PHRASE" ]]; then
+      return 0
+    fi
+    printf 'Input did not match. Try again.\n\n' >&2
+  done
+}
+
+url_decode() {
+  local data
+  data="${1//+/ }"
+  printf '%b' "${data//%/\\x}"
+}
+
+export_pg_env_from_url() {
+  local url rest userspec hostpath hostpart pathquery query
+  local user password host port dbname pair key value
+  local -a pairs=()
+  url="$1"
+
+  rest="${url#*://}"
+
+  if [[ "$rest" == *"@"* ]]; then
+    userspec="${rest%%@*}"
+    hostpath="${rest#*@}"
+  else
+    userspec=""
+    hostpath="$rest"
+  fi
+
+  if [[ "$userspec" == *":"* ]]; then
+    user="${userspec%%:*}"
+    password="${userspec#*:}"
+  else
+    user="$userspec"
+    password=""
+  fi
+
+  if [[ "$hostpath" == */* ]]; then
+    hostpart="${hostpath%%/*}"
+    pathquery="${hostpath#*/}"
+  else
+    hostpart="$hostpath"
+    pathquery=""
+  fi
+
+  if [[ "$hostpart" == *":"* ]]; then
+    host="${hostpart%%:*}"
+    port="${hostpart#*:}"
+  else
+    host="$hostpart"
+    port=""
+  fi
+
+  if [[ "$pathquery" == *"?"* ]]; then
+    dbname="${pathquery%%\?*}"
+    query="${pathquery#*\?}"
+  else
+    dbname="$pathquery"
+    query=""
+  fi
+
+  if [[ -z "$host" ]]; then
+    printf 'Could not parse host from DATABASE_URL.\n' >&2
+    exit 1
+  fi
+
+  export PGHOST="$host"
+  [[ -n "$port" ]]     && export PGPORT="$port"
+  [[ -n "$user" ]]     && export PGUSER="$(url_decode "$user")"
+  [[ -n "$password" ]] && export PGPASSWORD="$(url_decode "$password")"
+  [[ -n "$dbname" ]]   && export PGDATABASE="$(url_decode "$dbname")"
+
+  if [[ -n "$query" ]]; then
+    IFS='&' read -ra pairs <<< "$query"
+    for pair in "${pairs[@]}"; do
+      key="${pair%%=*}"
+      value="${pair#*=}"
+      case "$key" in
+        sslmode)         export PGSSLMODE="$value" ;;
+        sslrootcert)     export PGSSLROOTCERT="$value" ;;
+        sslcert)         export PGSSLCERT="$value" ;;
+        sslkey)          export PGSSLKEY="$value" ;;
+        channel_binding) export PGCHANNELBINDING="$value" ;;
+      esac
+    done
+  fi
+}
+
+fetch_and_run() {
+  local url
+  url=$(doppler secrets get DATABASE_URL --plain \
+    --project "$DOPPLER_PROJECT" \
+    --config "$DOPPLER_CONFIG")
+
+  if [[ -z "$url" ]]; then
+    printf 'Could not fetch DATABASE_URL from doppler.\n' >&2
+    exit 1
+  fi
+
+  export_pg_env_from_url "$url"
+  unset url
+
+  exec psql "$@"
+}
+
+main() {
+  local query_file=""
+  local interactive=0
+  local saw_sep=0
+  local arg
+  local -a extra_args=()
+  local -a psql_args=()
+
+  while [[ $# -gt 0 ]]; do
+    arg="$1"
+    shift
+    if [[ $saw_sep -eq 1 ]]; then
+      extra_args+=("$arg")
+      continue
+    fi
+    case "$arg" in
+      --) saw_sep=1 ;;
+      -c) interactive=1 ;;
+      -*)
+        usage
+        exit 1
+        ;;
+      *)
+        if [[ -n "$query_file" ]]; then
+          usage
+          exit 1
+        fi
+        query_file="$arg"
+        ;;
+    esac
+  done
+
+  if [[ $interactive -eq 1 && -n "$query_file" ]]; then
+    usage
+    exit 1
+  fi
+  if [[ $interactive -eq 0 && -z "$query_file" ]]; then
+    usage
+    exit 1
+  fi
+
+  if [[ $interactive -eq 1 ]]; then
+    printf 'About to open an interactive psql REPL against PRODUCTION.\n\n' >&2
+  else
+    if [[ ! -f "$query_file" ]]; then
+      printf 'Query file not found: %s\n' "$query_file" >&2
+      exit 1
+    fi
+    if [[ ! -r "$query_file" ]]; then
+      printf 'Query file not readable: %s\n' "$query_file" >&2
+      exit 1
+    fi
+    print_query_file "$query_file"
+    psql_args=(-f "$query_file")
+  fi
+
+  psql_args+=("${extra_args[@]+"${extra_args[@]}"}")
+
+  if [[ ${#extra_args[@]} -gt 0 ]]; then
+    printf 'Forwarding extra psql args: %s\n\n' "${extra_args[*]}" >&2
+  fi
+
+  require_confirmation
+
+  fetch_and_run "${psql_args[@]+"${psql_args[@]}"}"
+}
+
+main "$@"

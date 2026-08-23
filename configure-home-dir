@@ -5,13 +5,7 @@ mkdir -p "${local_bin_dir}"
 
 git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
 
-ln -sf /home/coder/havock-utils/bmc-access/bmc-access ${local_bin_dir}/bmc-access
-ln -sf /home/coder/.vim/bundle/fzf/bin/fzf ${local_bin_dir}/fzf 
-ln -sf /home/coder/havock-utils/bmc-access/rf-access ${local_bin_dir}/rf-access 
-
 cp br-open ${local_bin_dir}/br-open
 cp lcp ${local_bin_dir}/lcp
 cp local-open ${local_bin_dir}/local-open
-
-[[ -f ${local_bin_dir}/cwctl ]] || echo "w: EXPECTED binary: cwctl"
-[[ -f ${local_bin_dir}/yanl ]] || echo "w: EXPECTED binary: yanl"
+cp psql-prod-write ${local_bin_dir}/psql-prod-write
