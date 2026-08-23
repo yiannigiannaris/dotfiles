@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly DOPPLER_PROJECT="ticketmaster"
+readonly DOPPLER_CONFIG="prd-env"
+
+main() {
+  local url
+  url=$(doppler secrets get DATABASE_URL_READONLY --plain \
+    --project "$DOPPLER_PROJECT" \
+    --config "$DOPPLER_CONFIG")
+
+  if [[ -z "$url" ]]; then
+    printf 'Could not fetch DATABASE_URL_READONLY from doppler.\n' >&2
+    exit 1
+  fi
+
+  export PGDATABASE="$url"
+  exec psql "$@"
+}
+
+main "$@"
