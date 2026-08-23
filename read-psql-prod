@@ -4,6 +4,87 @@ set -euo pipefail
 readonly DOPPLER_PROJECT="ticketmaster"
 readonly DOPPLER_CONFIG="prd-env"
 
+url_decode() {
+  local data
+  data="${1//+/ }"
+  printf '%b' "${data//%/\\x}"
+}
+
+export_pg_env_from_url() {
+  local url rest userspec hostpath hostpart pathquery query
+  local user password host port dbname pair key value
+  local -a pairs=()
+  url="$1"
+
+  rest="${url#*://}"
+
+  if [[ "$rest" == *"@"* ]]; then
+    userspec="${rest%%@*}"
+    hostpath="${rest#*@}"
+  else
+    userspec=""
+    hostpath="$rest"
+  fi
+
+  if [[ "$userspec" == *":"* ]]; then
+    user="${userspec%%:*}"
+    password="${userspec#*:}"
+  else
+    user="$userspec"
+    password=""
+  fi
+
+  if [[ "$hostpath" == */* ]]; then
+    hostpart="${hostpath%%/*}"
+    pathquery="${hostpath#*/}"
+  else
+    hostpart="$hostpath"
+    pathquery=""
+  fi
+
+  if [[ "$hostpart" == *":"* ]]; then
+    host="${hostpart%%:*}"
+    port="${hostpart#*:}"
+  else
+    host="$hostpart"
+    port=""
+  fi
+
+  if [[ "$pathquery" == *"?"* ]]; then
+    dbname="${pathquery%%\?*}"
+    query="${pathquery#*\?}"
+  else
+    dbname="$pathquery"
+    query=""
+  fi
+
+  if [[ -z "$host" ]]; then
+    printf 'Could not parse host from DATABASE_URL_READONLY.\n' >&2
+    exit 1
+  fi
+
+  export PGHOST="$host"
+  [[ -n "$port" ]]     && export PGPORT="$port"
+  [[ -n "$user" ]]     && export PGUSER="$(url_decode "$user")"
+  [[ -n "$password" ]] && export PGPASSWORD="$(url_decode "$password")"
+  [[ -n "$dbname" ]]   && export PGDATABASE="$(url_decode "$dbname")"
+
+  if [[ -n "$query" ]]; then
+    IFS='&' read -ra pairs <<< "$query"
+    for pair in "${pairs[@]}"; do
+      key="${pair%%=*}"
+      value="${pair#*=}"
+      case "$key" in
+        sslmode)         export PGSSLMODE="$value" ;;
+        sslrootcert)     export PGSSLROOTCERT="$value" ;;
+        sslcert)         export PGSSLCERT="$value" ;;
+        sslkey)          export PGSSLKEY="$value" ;;
+        channel_binding) export PGCHANNELBINDING="$value" ;;
+      esac
+    done
+  fi
+}
+
 main() {
   local url
   url=$(doppler secrets get DATABASE_URL_READONLY --plain \
@@ -15,7 +96,9 @@ main() {
     exit 1
   fi
 
-  export PGDATABASE="$url"
+  export_pg_env_from_url "$url"
+  unset url
+
   exec psql "$@"
 }
 
