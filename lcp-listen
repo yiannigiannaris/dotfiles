@@ -1,0 +1,19 @@
+#! /bin/bash
+
+set -e
+
+PORT="${LCP_PORT:-8089}"
+
+function copy_one() {
+  nc -l 127.0.0.1 "${PORT}" | pbcopy
+}
+
+function main() {
+  echo "lcp-listen: waiting on 127.0.0.1:${PORT} (ctrl-c to stop)"
+  while true; do
+    copy_one
+    echo "lcp-listen: copied $(pbpaste | wc -c | tr -d ' ') bytes"
+  done
+}
+
+main
