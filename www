@@ -1,0 +1,72 @@
+#! /bin/bash
+
+set -euo pipefail
+
+WWW_OPEN_BASE="${WWW_OPEN_BASE:-http://127.0.0.1:8090}"
+
+urlencode_path() {
+  local path="$1"
+  python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe="/"))' "${path}"
+}
+
+file_url() {
+  local abs="$1"
+  printf '%s%s' "${WWW_OPEN_BASE}" "$(urlencode_path "${abs}")"
+}
+
+print_link() {
+  local url="$1"
+  local text="$2"
+  printf '\033]8;;%s\033\\%s\033]8;;\033\\\n' "${url}" "${text}"
+}
+
+try_open() {
+  local url="$1"
+  br-open "${url}" >/dev/null 2>&1
+}
+
+list_dir() {
+  local dir="$1"
+  local name
+  local abs
+  local url
+  while IFS= read -r name; do
+    abs="$(realpath -- "${dir}/${name}")"
+    url="$(file_url "${abs}")"
+    print_link "${url}" "${name}"
+  done < <(command ls -1 -- "${dir}")
+}
+
+main() {
+  local arg
+  local abs
+  local url
+  local open_failed=0
+
+  if [[ $# -eq 0 ]]; then
+    list_dir .
+    return 0
+  fi
+
+  for arg in "$@"; do
+    if [[ "${arg}" == http://* || "${arg}" == https://* ]]; then
+      print_link "${arg}" "${arg}"
+      try_open "${arg}" || open_failed=1
+      continue
+    fi
+    if [[ ! -e "${arg}" ]]; then
+      echo "www: not found: ${arg}" >&2
+      return 1
+    fi
+    abs="$(realpath -- "${arg}")"
+    url="$(file_url "${abs}")"
+    print_link "${url}" "${abs}"
+    try_open "${url}" || open_failed=1
+  done
+
+  if [[ "${open_failed}" -ne 0 ]]; then
+    echo "www: br-open failed (RemoteForward 8088 down?). Cmd-click the link." >&2
+  fi
+}
+
+main "$@"

@@ -8,5 +8,6 @@ git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
 cp br-open ${local_bin_dir}/br-open
 cp lcp ${local_bin_dir}/lcp
 cp local-open ${local_bin_dir}/local-open
+cp www ${local_bin_dir}/www
 cp psql-prod-write ${local_bin_dir}/psql-prod-write
 cp read-psql-prod ${local_bin_dir}/read-psql-prod

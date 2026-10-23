@@ -1,0 +1,37 @@
+#! /bin/bash
+# Mac-side iTerm2 Semantic History handler.
+# Profiles → Advanced → Semantic History → Always run command:
+#   /Users/YOU/bin/iterm-www \1 \5
+
+set -euo pipefail
+
+WWW_OPEN_BASE="${WWW_OPEN_BASE:-http://127.0.0.1:8090}"
+
+main() {
+  local file="${1:-}"
+  local line_pwd="${2:-}"
+  local abs
+  local encoded
+
+  if [[ -z "${file}" ]]; then
+    exit 0
+  fi
+
+  if [[ "${file}" == file://* ]]; then
+    file="${file#file://}"
+    file="/${file#*/}"
+  fi
+
+  if [[ "${file}" == /* ]]; then
+    abs="${file}"
+  elif [[ -n "${line_pwd}" ]]; then
+    abs="${line_pwd%/}/${file}"
+  else
+    abs="${file}"
+  fi
+
+  encoded="$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe="/"))' "${abs}")"
+  open -a "Google Chrome" "${WWW_OPEN_BASE}${encoded}"
+}
+
+main "$@"
